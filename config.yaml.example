@@ -1,0 +1,29 @@
+# Vulnerability Research Pipeline Configuration
+
+analysis:
+  min_severity: low
+  min_confidence: 0.3
+  max_findings: 100
+
+slither:
+  filter_paths:
+    - "test/"
+    - "script/"
+    - "lib/"
+    - "node_modules/"
+
+semgrep:
+  rules_dir: "rules/semgrep/"
+
+foundry:
+  fork_url: ""      # Alchemy/Infura RPC URL
+  fork_block: null
+  gas_limit: 30000000
+
+targets: []
+# Example:
+#   - name: "ProtocolX"
+#     repo: "https://github.com/org/protocol"
+#     scope: ["src/"]
+#     exclude: ["src/mocks/"]
+#     immunefi_program: "protocolx"

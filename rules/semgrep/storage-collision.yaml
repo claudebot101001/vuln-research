@@ -1,0 +1,63 @@
+rules:
+  - id: solidity.storage-collision.delegatecall-to-variable
+    patterns:
+      - pattern: $ADDR.delegatecall($DATA)
+      - pattern-inside: |
+          function $FUNC(...) ... {
+            ...
+          }
+    message: >
+      `delegatecall` is invoked on an address that may be variable.
+      The target contract's code executes in the caller's storage context,
+      so a storage layout mismatch can corrupt state. Ensure the
+      delegatecall target is immutable and has a compatible storage layout.
+    languages: [solidity]
+    severity: ERROR
+    metadata:
+      category: storage-collision
+      confidence: medium
+      impact: critical
+
+  - id: solidity.storage-collision.selfdestruct-in-implementation
+    patterns:
+      - pattern: selfdestruct($ADDR)
+      - pattern-inside: |
+          contract $NAME is ... {
+            ...
+          }
+      - pattern-not-inside: |
+          contract $NAME is ... Proxy ... {
+            ...
+          }
+    message: >
+      `selfdestruct` in an implementation contract behind a proxy is
+      dangerous. If the implementation self-destructs, the proxy's
+      delegatecall will silently succeed (returning empty) for all
+      subsequent calls, effectively bricking the proxy.
+    languages: [solidity]
+    severity: ERROR
+    metadata:
+      category: storage-collision
+      confidence: high
+      impact: critical
+
+  - id: solidity.storage-collision.upgradeable-missing-initializer
+    patterns:
+      - pattern-inside: |
+          contract $NAME is ... Initializable ... {
+            ...
+          }
+      - pattern: |
+          constructor(...) {
+            ...
+          }
+    message: >
+      An upgradeable contract (inheriting `Initializable`) has a
+      constructor. Constructors do not run in the proxy context --
+      use an `initialize` function with the `initializer` modifier instead.
+    languages: [solidity]
+    severity: ERROR
+    metadata:
+      category: storage-collision
+      confidence: high
+      impact: high

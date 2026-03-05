@@ -1,0 +1,59 @@
+rules:
+  - id: solidity.flash-loan.balance-check-manipulable
+    patterns:
+      - pattern-inside: |
+          function $FUNC(...) ... {
+            ...
+          }
+      - pattern-either:
+          - pattern: |
+              if (IERC20($TOKEN).balanceOf(address(this)) $OP $VAL) { ... }
+          - pattern: |
+              require(IERC20($TOKEN).balanceOf(address(this)) $OP $VAL);
+          - pattern: |
+              $BAL = IERC20($TOKEN).balanceOf(address(this));
+              ...
+              require($BAL $OP $VAL);
+          - pattern: |
+              $BAL = $TOKEN.balanceOf(address(this));
+              ...
+              if ($BAL $OP $VAL) { ... }
+    message: >
+      `balanceOf(address(this))` is used in conditional logic.
+      Contract balances can be temporarily inflated via flash loans,
+      allowing attackers to bypass balance-based checks. Use internal
+      accounting instead of live balance queries.
+    languages: [solidity]
+    severity: ERROR
+    metadata:
+      category: flash-loan
+      confidence: medium
+      impact: high
+
+  - id: solidity.flash-loan.callback-without-validation
+    patterns:
+      - pattern-either:
+          - pattern: |
+              function onFlashLoan(...) ... {
+                ...
+              }
+          - pattern: |
+              function executeOperation(...) ... {
+                ...
+              }
+      - pattern-not-inside: |
+          function $FUNC(...) ... {
+            ...
+            require(msg.sender == $POOL, ...);
+            ...
+          }
+    message: >
+      Flash loan callback (`onFlashLoan` / `executeOperation`) does not
+      validate that `msg.sender` is the expected lending pool. An attacker
+      can call this function directly to manipulate contract state.
+    languages: [solidity]
+    severity: ERROR
+    metadata:
+      category: flash-loan
+      confidence: high
+      impact: high

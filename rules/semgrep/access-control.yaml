@@ -1,0 +1,88 @@
+rules:
+  - id: solidity.access-control.unprotected-selfdestruct
+    patterns:
+      - pattern: |
+          function $FUNC(...) public {
+            ...
+            selfdestruct($ADDR);
+            ...
+          }
+      - pattern-not: |
+          function $FUNC(...) public $MOD {
+            ...
+            selfdestruct($ADDR);
+            ...
+          }
+    message: >
+      A public function calls `selfdestruct` without any modifier.
+      An attacker can destroy the contract and steal remaining ETH.
+      Add an access control modifier such as `onlyOwner`.
+    languages: [solidity]
+    severity: ERROR
+    metadata:
+      category: access-control
+      confidence: high
+      impact: critical
+
+  - id: solidity.access-control.initialize-without-initializer
+    patterns:
+      - pattern: |
+          function initialize(...) ... {
+            ...
+          }
+      - pattern-not: |
+          function initialize(...) ... initializer ... {
+            ...
+          }
+    message: >
+      The `initialize` function lacks the `initializer` modifier.
+      Without it, an attacker can call initialize again to take
+      ownership of an upgradeable proxy contract.
+    languages: [solidity]
+    severity: ERROR
+    metadata:
+      category: access-control
+      confidence: high
+      impact: critical
+
+  - id: solidity.access-control.missing-owner-check-on-admin-function
+    patterns:
+      - pattern-either:
+          - pattern: |
+              function withdraw(...) external {
+                ...
+              }
+          - pattern: |
+              function pause(...) external {
+                ...
+              }
+          - pattern: |
+              function setPrice(...) external {
+                ...
+              }
+          - pattern: |
+              function withdraw(...) public {
+                ...
+              }
+          - pattern: |
+              function pause(...) public {
+                ...
+              }
+          - pattern: |
+              function setPrice(...) public {
+                ...
+              }
+      - pattern-not: |
+          function $FUNC(...) ... onlyOwner ... {
+            ...
+          }
+    message: >
+      Admin-like function (withdraw, pause, setPrice) is public/external
+      without an `onlyOwner` modifier. Unauthorized callers may be able
+      to invoke privileged operations.
+    languages: [solidity]
+    severity: WARNING
+    metadata:
+      category: access-control
+      confidence: medium
+      impact: high

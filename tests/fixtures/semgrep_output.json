@@ -1,0 +1,150 @@
+{
+  "results": [
+    {
+      "check_id": "solidity.reentrancy.external-call-before-state-update",
+      "path": "src/Vault.sol",
+      "start": {
+        "line": 48,
+        "col": 5,
+        "offset": 1200
+      },
+      "end": {
+        "line": 52,
+        "col": 40,
+        "offset": 1450
+      },
+      "extra": {
+        "severity": "ERROR",
+        "message": "External call via `.call{value:}` is made before a state variable assignment. This is the classic reentrancy pattern -- an attacker can re-enter the function before state is updated.",
+        "lines": "(bool success,) = msg.sender.call{value: amount}(\"\");\n    require(success);\n    balances[msg.sender] -= amount;",
+        "metadata": {
+          "category": "reentrancy",
+          "confidence": "high",
+          "impact": "high"
+        }
+      }
+    },
+    {
+      "check_id": "solidity.access-control.unprotected-selfdestruct",
+      "path": "src/Implementation.sol",
+      "start": {
+        "line": 10,
+        "col": 5,
+        "offset": 300
+      },
+      "end": {
+        "line": 12,
+        "col": 6,
+        "offset": 380
+      },
+      "extra": {
+        "severity": "ERROR",
+        "message": "A public function calls `selfdestruct` without any modifier. An attacker can destroy the contract and steal remaining ETH.",
+        "lines": "function destroy() public {\n    selfdestruct(payable(msg.sender));\n}",
+        "metadata": {
+          "category": "access-control",
+          "confidence": "high",
+          "impact": "critical"
+        }
+      }
+    },
+    {
+      "check_id": "solidity.oracle.stale-price-no-updatedAt-check",
+      "path": "src/PriceOracle.sol",
+      "start": {
+        "line": 22,
+        "col": 9,
+        "offset": 550
+      },
+      "end": {
+        "line": 22,
+        "col": 45,
+        "offset": 586
+      },
+      "extra": {
+        "severity": "ERROR",
+        "message": "`latestRoundData()` is called without verifying the `updatedAt` timestamp. Stale price data can be exploited.",
+        "lines": "(,int256 price,,,) = oracle.latestRoundData();",
+        "metadata": {
+          "category": "oracle-manipulation",
+          "confidence": "high",
+          "impact": "high"
+        }
+      }
+    },
+    {
+      "check_id": "solidity.unchecked-calls.erc20-transfer-no-return-check",
+      "path": "src/TokenBridge.sol",
+      "start": {
+        "line": 35,
+        "col": 9,
+        "offset": 900
+      },
+      "end": {
+        "line": 35,
+        "col": 55,
+        "offset": 946
+      },
+      "extra": {
+        "severity": "WARNING",
+        "message": "`IERC20.transfer()` return value is not checked. Some tokens do not revert on failure.",
+        "lines": "IERC20(token).transfer(recipient, amount);",
+        "metadata": {
+          "category": "unchecked-calls",
+          "confidence": "high",
+          "impact": "medium"
+        }
+      }
+    },
+    {
+      "check_id": "solidity.integer-overflow.unsafe-downcast",
+      "path": "src/StakingPool.sol",
+      "start": {
+        "line": 42,
+        "col": 9,
+        "offset": 1100
+      },
+      "end": {
+        "line": 42,
+        "col": 35,
+        "offset": 1126
+      },
+      "extra": {
+        "severity": "WARNING",
+        "message": "Type downcast without bounds check. Casting uint256 to uint128 silently truncates.",
+        "lines": "uint128(totalRewards)",
+        "metadata": {
+          "category": "integer-overflow",
+          "confidence": "medium",
+          "impact": "medium"
+        }
+      }
+    },
+    {
+      "check_id": "solidity.flash-loan.balance-check-manipulable",
+      "path": "src/LendingPool.sol",
+      "start": {
+        "line": 88,
+        "col": 9,
+        "offset": 2200
+      },
+      "end": {
+        "line": 90,
+        "col": 10,
+        "offset": 2350
+      },
+      "extra": {
+        "severity": "ERROR",
+        "message": "`balanceOf(address(this))` is used in conditional logic. Contract balances can be inflated via flash loans.",
+        "lines": "uint256 bal = IERC20(token).balanceOf(address(this));\nrequire(bal >= minBalance);",
+        "metadata": {
+          "category": "flash-loan",
+          "confidence": "medium",
+          "impact": "high"
+        }
+      }
+    }
+  ],
+  "errors": [],
+  "version": "1.50.0"
+}

@@ -1,0 +1,204 @@
+{
+  "success": true,
+  "error": null,
+  "results": {
+    "detectors": [
+      {
+        "check": "reentrancy-eth",
+        "impact": "High",
+        "confidence": "Medium",
+        "description": "Reentrancy in Vault.withdraw(uint256) (src/Vault.sol#45-55):\n\tExternal calls:\n\t- (success) = msg.sender.call{value: amount}() (src/Vault.sol#50)\n\tState variables written after the call(s):\n\t- balances[msg.sender] -= amount (src/Vault.sol#52)",
+        "elements": [
+          {
+            "type": "function",
+            "name": "withdraw",
+            "source_mapping": {
+              "filename_relative": "src/Vault.sol",
+              "filename_absolute": "/home/user/project/src/Vault.sol",
+              "lines": [45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
+              "content": "function withdraw(uint256 amount) external {\n    require(balances[msg.sender] >= amount);\n    (bool success,) = msg.sender.call{value: amount}(\"\");\n    require(success);\n    balances[msg.sender] -= amount;\n}"
+            }
+          },
+          {
+            "type": "contract",
+            "name": "Vault",
+            "source_mapping": {
+              "filename_relative": "src/Vault.sol",
+              "filename_absolute": "/home/user/project/src/Vault.sol",
+              "lines": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+              "content": ""
+            }
+          }
+        ]
+      },
+      {
+        "check": "arbitrary-send-eth",
+        "impact": "High",
+        "confidence": "High",
+        "description": "Vault.emergencyWithdraw() (src/Vault.sol#60-65) sends eth to arbitrary user",
+        "elements": [
+          {
+            "type": "function",
+            "name": "emergencyWithdraw",
+            "source_mapping": {
+              "filename_relative": "src/Vault.sol",
+              "filename_absolute": "/home/user/project/src/Vault.sol",
+              "lines": [60, 61, 62, 63, 64, 65],
+              "content": "function emergencyWithdraw() external {\n    payable(msg.sender).transfer(address(this).balance);\n}"
+            }
+          },
+          {
+            "type": "contract",
+            "name": "Vault",
+            "source_mapping": {
+              "filename_relative": "src/Vault.sol",
+              "filename_absolute": "/home/user/project/src/Vault.sol",
+              "lines": [1, 2, 3],
+              "content": ""
+            }
+          }
+        ]
+      },
+      {
+        "check": "divide-before-multiply",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "description": "PriceOracle.getPrice() (src/PriceOracle.sol#20-30) performs a multiplication on the result of a division:\n\t- price = totalValue / totalSupply * 1e18 (src/PriceOracle.sol#25)",
+        "elements": [
+          {
+            "type": "function",
+            "name": "getPrice",
+            "source_mapping": {
+              "filename_relative": "src/PriceOracle.sol",
+              "filename_absolute": "/home/user/project/src/PriceOracle.sol",
+              "lines": [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+              "content": "uint256 price = totalValue / totalSupply * 1e18;"
+            }
+          },
+          {
+            "type": "contract",
+            "name": "PriceOracle",
+            "source_mapping": {
+              "filename_relative": "src/PriceOracle.sol",
+              "filename_absolute": "/home/user/project/src/PriceOracle.sol",
+              "lines": [1],
+              "content": ""
+            }
+          }
+        ]
+      },
+      {
+        "check": "unchecked-lowlevel",
+        "impact": "Medium",
+        "confidence": "Medium",
+        "description": "TokenBridge.bridgeTokens(address,uint256) (src/TokenBridge.sol#30-40) ignores return value by target.call(data) (src/TokenBridge.sol#35)",
+        "elements": [
+          {
+            "type": "function",
+            "name": "bridgeTokens",
+            "source_mapping": {
+              "filename_relative": "src/TokenBridge.sol",
+              "filename_absolute": "/home/user/project/src/TokenBridge.sol",
+              "lines": [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40],
+              "content": "target.call(data);"
+            }
+          },
+          {
+            "type": "contract",
+            "name": "TokenBridge",
+            "source_mapping": {
+              "filename_relative": "src/TokenBridge.sol",
+              "filename_absolute": "/home/user/project/src/TokenBridge.sol",
+              "lines": [1],
+              "content": ""
+            }
+          }
+        ]
+      },
+      {
+        "check": "suicidal",
+        "impact": "High",
+        "confidence": "High",
+        "description": "Implementation.destroy() (src/Implementation.sol#10-12) calls selfdestruct without access control",
+        "elements": [
+          {
+            "type": "function",
+            "name": "destroy",
+            "source_mapping": {
+              "filename_relative": "src/Implementation.sol",
+              "filename_absolute": "/home/user/project/src/Implementation.sol",
+              "lines": [10, 11, 12],
+              "content": "selfdestruct(payable(msg.sender));"
+            }
+          },
+          {
+            "type": "contract",
+            "name": "Implementation",
+            "source_mapping": {
+              "filename_relative": "src/Implementation.sol",
+              "filename_absolute": "/home/user/project/src/Implementation.sol",
+              "lines": [1],
+              "content": ""
+            }
+          }
+        ]
+      },
+      {
+        "check": "controlled-delegatecall",
+        "impact": "High",
+        "confidence": "Medium",
+        "description": "Proxy.forward(address,bytes) (src/Proxy.sol#15-20) uses delegatecall to a user-controlled address",
+        "elements": [
+          {
+            "type": "function",
+            "name": "forward",
+            "source_mapping": {
+              "filename_relative": "src/Proxy.sol",
+              "filename_absolute": "/home/user/project/src/Proxy.sol",
+              "lines": [15, 16, 17, 18, 19, 20],
+              "content": "target.delegatecall(data);"
+            }
+          },
+          {
+            "type": "contract",
+            "name": "Proxy",
+            "source_mapping": {
+              "filename_relative": "src/Proxy.sol",
+              "filename_absolute": "/home/user/project/src/Proxy.sol",
+              "lines": [1],
+              "content": ""
+            }
+          }
+        ]
+      },
+      {
+        "check": "uninitialized-storage",
+        "impact": "High",
+        "confidence": "High",
+        "description": "StakingPool.stake() (src/StakingPool.sol#25-35) has an uninitialized storage variable user (src/StakingPool.sol#27)",
+        "elements": [
+          {
+            "type": "function",
+            "name": "stake",
+            "source_mapping": {
+              "filename_relative": "src/StakingPool.sol",
+              "filename_absolute": "/home/user/project/src/StakingPool.sol",
+              "lines": [25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35],
+              "content": "UserInfo storage user;"
+            }
+          },
+          {
+            "type": "contract",
+            "name": "StakingPool",
+            "source_mapping": {
+              "filename_relative": "src/StakingPool.sol",
+              "filename_absolute": "/home/user/project/src/StakingPool.sol",
+              "lines": [1],
+              "content": ""
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

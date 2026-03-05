@@ -1,0 +1,58 @@
+rules:
+  - id: solidity.oracle.stale-price-no-updatedAt-check
+    patterns:
+      - pattern: $ORACLE.latestRoundData()
+      - pattern-not-inside: |
+          (..., ..., ..., $UPDATED_AT, ...) = $ORACLE.latestRoundData();
+          ...
+          require($UPDATED_AT > ...);
+      - pattern-not-inside: |
+          (..., ..., ..., $UPDATED_AT, ...) = $ORACLE.latestRoundData();
+          ...
+          if ($UPDATED_AT < ...) ...;
+    message: >
+      `latestRoundData()` is called without verifying the `updatedAt`
+      timestamp. Stale or outdated price data can be exploited for
+      arbitrage. Always check that the price is recent.
+    languages: [solidity]
+    severity: ERROR
+    metadata:
+      category: oracle-manipulation
+      confidence: high
+      impact: high
+      references:
+        - https://docs.chain.link/data-feeds/api-reference
+
+  - id: solidity.oracle.spot-price-via-getReserves
+    pattern: $PAIR.getReserves()
+    message: >
+      `getReserves()` is used, likely for on-chain spot price calculation.
+      Uniswap/AMM reserves can be manipulated within a single transaction
+      via flash loans. Use a TWAP oracle or Chainlink price feed instead.
+    languages: [solidity]
+    severity: ERROR
+    metadata:
+      category: oracle-manipulation
+      confidence: medium
+      impact: high
+
+  - id: solidity.oracle.single-oracle-no-fallback
+    patterns:
+      - pattern: |
+          $PRICE = $ORACLE.latestRoundData();
+      - pattern-not-inside: |
+          try $ORACLE.latestRoundData() ... {
+            ...
+          } catch {
+            ...
+          }
+    message: >
+      A single oracle source is used without a try/catch fallback.
+      If the oracle reverts or returns stale data, the protocol will
+      be bricked. Implement a fallback oracle mechanism.
+    languages: [solidity]
+    severity: WARNING
+    metadata:
+      category: oracle-manipulation
+      confidence: medium
+      impact: medium

@@ -14,11 +14,16 @@ TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "foundry" / "templates"
 # Map attack vector keywords to template files
 TEMPLATE_MAP: dict[str, str] = {
     "reentrancy": "reentrancy_poc.sol.j2",
+    "re-enter": "reentrancy_poc.sol.j2",
+    "reentrant": "reentrancy_poc.sol.j2",
     "flash_loan": "flash_loan_poc.sol.j2",
     "flash-loan": "flash_loan_poc.sol.j2",
+    "flash loan": "flash_loan_poc.sol.j2",
     "flashloan": "flash_loan_poc.sol.j2",
     "access_control": "access_control_poc.sol.j2",
     "access-control": "access_control_poc.sol.j2",
+    "authorization": "access_control_poc.sol.j2",
+    "unprotected": "access_control_poc.sol.j2",
     "oracle": "oracle_manipulation_poc.sol.j2",
     "oracle_manipulation": "oracle_manipulation_poc.sol.j2",
     "oracle-manipulation": "oracle_manipulation_poc.sol.j2",

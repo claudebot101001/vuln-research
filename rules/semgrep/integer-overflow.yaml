@@ -1,0 +1,49 @@
+rules:
+  - id: solidity.integer-overflow.unchecked-arithmetic
+    patterns:
+      - pattern-inside: |
+          unchecked {
+            ...
+          }
+      - pattern-either:
+          - pattern: $A + $B
+          - pattern: $A - $B
+          - pattern: $A * $B
+    message: >
+      Arithmetic operation inside an `unchecked` block bypasses Solidity
+      0.8+ overflow/underflow protection. If any operand is derived from
+      user input or external data, this can lead to integer overflow.
+      Validate inputs before performing unchecked arithmetic.
+    languages: [solidity]
+    severity: WARNING
+    metadata:
+      category: integer-overflow
+      confidence: medium
+      impact: high
+      references:
+        - https://docs.soliditylang.org/en/latest/control-structures.html#checked-or-unchecked-arithmetic
+
+  - id: solidity.integer-overflow.unsafe-downcast
+    patterns:
+      - pattern-either:
+          - pattern: uint128($X)
+          - pattern: uint96($X)
+          - pattern: uint64($X)
+          - pattern: uint32($X)
+          - pattern: uint16($X)
+          - pattern: uint8($X)
+          - pattern: int128($X)
+          - pattern: int64($X)
+          - pattern: int32($X)
+    message: >
+      Type downcast without bounds check. Casting a larger integer type
+      to a smaller one silently truncates the value. Use OpenZeppelin's
+      `SafeCast` library or add explicit bounds checks before casting.
+    languages: [solidity]
+    severity: WARNING
+    metadata:
+      category: integer-overflow
+      confidence: medium
+      impact: medium
+      references:
+        - https://docs.openzeppelin.com/contracts/4.x/api/utils#SafeCast

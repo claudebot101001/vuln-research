@@ -1,0 +1,61 @@
+rules:
+  - id: solidity.unchecked-calls.call-return-not-checked
+    patterns:
+      - pattern: |
+          $ADDR.call{...}(...);
+      - pattern-not: |
+          (bool $OK, ...) = $ADDR.call{...}(...);
+      - pattern-not: |
+          ($OK, ...) = $ADDR.call{...}(...);
+    message: >
+      The return value of a low-level `.call()` is not captured.
+      If the call fails silently, the contract will continue executing
+      with incorrect assumptions. Always check the boolean return value.
+    languages: [solidity]
+    severity: ERROR
+    metadata:
+      category: unchecked-calls
+      confidence: high
+      impact: high
+      references:
+        - https://swcregistry.io/docs/SWC-104
+
+  - id: solidity.unchecked-calls.send-return-not-checked
+    patterns:
+      - pattern: |
+          $ADDR.send($AMT);
+      - pattern-not: |
+          bool $OK = $ADDR.send($AMT);
+      - pattern-not: |
+          require($ADDR.send($AMT));
+    message: >
+      The return value of `.send()` is not checked. Unlike `.transfer()`,
+      `.send()` does not revert on failure -- it returns false. Always
+      check the return value or use `.transfer()` instead.
+    languages: [solidity]
+    severity: ERROR
+    metadata:
+      category: unchecked-calls
+      confidence: high
+      impact: high
+
+  - id: solidity.unchecked-calls.erc20-transfer-no-return-check
+    patterns:
+      - pattern: |
+          IERC20($TOKEN).transfer($TO, $AMT);
+      - pattern-not: |
+          require(IERC20($TOKEN).transfer($TO, $AMT));
+      - pattern-not: |
+          bool $OK = IERC20($TOKEN).transfer($TO, $AMT);
+    message: >
+      `IERC20.transfer()` return value is not checked. Some tokens
+      (e.g., USDT) do not revert on failure but return false.
+      Use OpenZeppelin's `SafeERC20.safeTransfer()` instead.
+    languages: [solidity]
+    severity: WARNING
+    metadata:
+      category: unchecked-calls
+      confidence: high
+      impact: medium
+      references:
+        - https://github.com/d-xo/weird-erc20

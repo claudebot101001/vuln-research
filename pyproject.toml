@@ -1,0 +1,21 @@
+[project]
+name = "vuln-research"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "slither-analyzer",
+    "semgrep",
+    "crytic-compile",
+    "pydantic>=2.0",
+    "pyyaml",
+    "jinja2",
+    "rich",
+    "click",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

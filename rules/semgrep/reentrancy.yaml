@@ -1,0 +1,43 @@
+rules:
+  - id: solidity.reentrancy.external-call-before-state-update
+    patterns:
+      - pattern: |
+          $ADDR.call{value: $V}($ARGS);
+          ...
+          $STATE = $EXPR;
+      - pattern-inside: |
+          function $FUNC(...) ... {
+            ...
+          }
+    message: >
+      External call via `.call{value:}` is made before a state variable
+      assignment. This is the classic reentrancy pattern -- an attacker can
+      re-enter the function before state is updated. Apply the
+      checks-effects-interactions pattern or use a reentrancy guard.
+    languages: [solidity]
+    severity: ERROR
+    metadata:
+      category: reentrancy
+      confidence: high
+      impact: high
+      references:
+        - https://swcregistry.io/docs/SWC-107
+
+  - id: solidity.reentrancy.state-read-after-external-call
+    patterns:
+      - pattern: |
+          $ADDR.call{value: $V}($ARGS);
+          ...
+          ... $MAP[$KEY] ...;
+      - pattern-not-inside: |
+          modifier nonReentrant() { ...; _; ... }
+    message: >
+      A state variable is read after an external call without a reentrancy
+      guard. If the external call re-enters, stale state may be used.
+      Consider adding a `nonReentrant` modifier.
+    languages: [solidity]
+    severity: WARNING
+    metadata:
+      category: reentrancy
+      confidence: medium
+      impact: high

@@ -1,7 +1,6 @@
 """Phase 6: End-to-end vulnerability research pipeline orchestrator."""
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -79,9 +78,9 @@ class PipelineOrchestrator:
     def _generate_hypotheses(self) -> list[Hypothesis]:
         """Generate hypotheses from findings. Imports HypothesisEngine lazily."""
         try:
-            from .hypothesis import HypothesisEngine
-            engine = HypothesisEngine()
-            return engine.generate(self.findings)
+            from .hypothesize import HypothesisEngine
+            engine = HypothesisEngine(self.findings, self.config)
+            return engine.generate()
         except ImportError:
             # HypothesisEngine not yet available — fall back to simple mapping
             return self._fallback_hypotheses()

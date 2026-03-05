@@ -1,0 +1,72 @@
+rules:
+  - id: solidity.taint.msg-sender-direct-storage-write
+    patterns:
+      - pattern-inside: |
+          function $FUNC(...) ... {
+            ...
+          }
+      - pattern-either:
+          - pattern: $MAP[msg.sender] = $VAL;
+          - pattern: $STORAGE = msg.sender;
+      - pattern-not-inside: |
+          require(msg.sender == $EXPECTED, ...);
+          ...
+      - pattern-not-inside: |
+          modifier $MOD() { require(msg.sender == ...); _; }
+    message: >
+      `msg.sender` is written directly to storage without prior validation.
+      If the function is callable by anyone, an attacker can insert their
+      address into privileged mappings. Add access control or validate
+      the sender against an allowlist.
+    languages: [solidity]
+    severity: WARNING
+    metadata:
+      category: taint-analysis
+      confidence: medium
+      impact: medium
+
+  - id: solidity.taint.parameter-to-delegatecall
+    patterns:
+      - pattern-inside: |
+          function $FUNC(..., address $TARGET, ...) ... {
+            ...
+          }
+      - pattern: $TARGET.delegatecall($DATA)
+    message: >
+      A function parameter is used as the target of `delegatecall`.
+      An attacker can pass a malicious contract address to execute
+      arbitrary code in the caller's storage context. Never allow
+      user-supplied addresses for delegatecall targets.
+    languages: [solidity]
+    severity: ERROR
+    metadata:
+      category: taint-analysis
+      confidence: high
+      impact: critical
+
+  - id: solidity.taint.untrusted-create2-salt
+    patterns:
+      - pattern-inside: |
+          function $FUNC(...) ... {
+            ...
+          }
+      - pattern-either:
+          - pattern: |
+              assembly {
+                ...
+                create2($VAL, $OFFSET, $SIZE, $SALT)
+                ...
+              }
+          - pattern: |
+              new $CONTRACT{salt: $SALT}(...)
+    message: >
+      `create2` is used with a salt that may be derived from untrusted
+      input. An attacker who controls the salt can pre-compute the
+      deployment address and front-run the deployment. Ensure the salt
+      includes msg.sender or another unpredictable value.
+    languages: [solidity]
+    severity: WARNING
+    metadata:
+      category: taint-analysis
+      confidence: low
+      impact: medium
