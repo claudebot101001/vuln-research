@@ -1,0 +1,79 @@
+# {{ title }}
+
+**Severity**: {{ immunefi_severity }}
+**Program**: {{ immunefi_program | default("N/A") }}
+**Date**: {{ created_at }}
+
+---
+
+## Summary
+
+{{ summary }}
+
+**Target Protocol**: {{ target_protocol }}
+**Affected Contracts**: {{ target_contracts | join(", ") }}
+
+---
+
+## Vulnerability Details
+
+{{ vulnerability_detail }}
+
+---
+
+## Impact
+
+{{ impact_detail }}
+
+---
+
+## Attack Scenario
+
+{{ attack_scenario }}
+
+---
+
+## Proof of Concept
+
+```solidity
+{{ poc_code }}
+```
+
+{% if poc_result %}
+### PoC Results
+
+| Field | Value |
+|-------|-------|
+| Test | `{{ poc_result.test_name }}` |
+| Compiled | {{ "Yes" if poc_result.compiled else "No" }} |
+| Passed | {{ "Yes" if poc_result.passed else "No" }} |
+{% if poc_result.gas_used %}| Gas Used | {{ poc_result.gas_used }} |{% endif %}
+{% if poc_result.profit_usd %}| Estimated Profit | ${{ "%.2f" | format(poc_result.profit_usd) }} |{% endif %}
+
+{% if poc_result.logs %}
+<details>
+<summary>Test Logs</summary>
+
+```
+{{ poc_result.logs }}
+```
+
+</details>
+{% endif %}
+{% endif %}
+
+---
+
+## Remediation
+
+{{ remediation }}
+
+{% if references %}
+---
+
+## References
+
+{% for ref in references %}
+- {{ ref }}
+{% endfor %}
+{% endif %}

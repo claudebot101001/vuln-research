@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^{{ solc_version | default("0.8.20") }};
+
+import "forge-std/Test.sol";
+import "forge-std/console.sol";
+
+interface ITarget {
+    function {{ target_function }}({{ target_function_args | default("") }}) external;
+}
+
+contract AccessControlExploitTest is Test {
+    ITarget public target;
+    address public unauthorized = makeAddr("unauthorized");
+
+    {% if fork_url %}
+    uint256 internal fork;
+    {% endif %}
+
+    function setUp() public {
+        {% if fork_url %}
+        fork = vm.createSelectFork(
+            "{{ fork_url }}"{% if fork_block %},
+            {{ fork_block }}{% endif %}
+
+        );
+        {% endif %}
+
+        target = ITarget({{ target_contract }});
+
+        vm.label(address(target), "Target");
+        vm.label(unauthorized, "Unauthorized");
+    }
+
+    function test_access_control_bypass() public {
+        // Call protected function from unauthorized address
+        vm.startPrank(unauthorized);
+
+        // Should succeed when it shouldn't — proving missing access control
+        target.{{ target_function }}({{ exploit_args | default("") }});
+
+        vm.stopPrank();
+
+        console.log("Access control bypassed: unauthorized caller succeeded");
+    }
+}

