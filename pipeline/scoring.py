@@ -1,4 +1,4 @@
-from .models import Finding, Severity
+from .models import Finding, Severity, sev_rank
 
 # Impact weights (higher = more severe)
 CATEGORY_SEVERITY = {
@@ -24,7 +24,7 @@ def score_finding(finding: Finding) -> Finding:
     """Adjust severity and confidence based on DeFi context."""
     # If category has a known severity mapping and finding is lower, upgrade
     category_sev = CATEGORY_SEVERITY.get(finding.category)
-    if category_sev and _sev_rank(finding.severity) > _sev_rank(category_sev):
+    if category_sev and sev_rank(finding.severity) > sev_rank(category_sev):
         # Don't downgrade, only consider upgrade context
         pass
 
@@ -35,10 +35,6 @@ def score_finding(finding: Finding) -> Finding:
         )
 
     return finding
-
-
-def _sev_rank(sev: Severity) -> int:
-    return list(Severity).index(sev)
 
 
 def severity_to_immunefi(sev: Severity) -> str:

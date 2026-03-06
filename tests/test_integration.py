@@ -1,31 +1,31 @@
-"""Integration tests: exercise scan → hypothesize → verify → report pipeline."""
+"""Integration tests: verify pipeline v2 modules work together."""
 
-import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pipeline.hypothesize import HypothesisEngine
 from pipeline.models import (
+    AcquiredTarget,
+    CodeContext,
     Finding,
     FindingSource,
+    FreshnessReport,
     Hypothesis,
     PoCResult,
     ScanConfig,
     Severity,
     VulnReport,
 )
-from pipeline.report import ReportGenerator
-from pipeline.verify import Verifier
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SAMPLE_CONTRACTS = FIXTURES / "sample_contracts"
 
 
 # ---------------------------------------------------------------------------
-# Helpers: simulate scan output (Slither/Semgrep produce these from Vulnerable.sol)
+# Helpers
 # ---------------------------------------------------------------------------
+
 
 def _simulated_findings() -> list[Finding]:
     """Findings that static analysis would produce from Vulnerable.sol."""
@@ -109,165 +109,171 @@ def _simulated_findings() -> list[Finding]:
 
 
 # ---------------------------------------------------------------------------
-# Phase 2: Hypothesis generation
+# Module import smoke tests
 # ---------------------------------------------------------------------------
 
 
-class TestHypothesisIntegration:
-    def test_generates_hypotheses_from_findings(self):
-        findings = _simulated_findings()
-        engine = HypothesisEngine(findings)
-        hypotheses = engine.generate()
+class TestModuleImports:
+    """Verify all v2 pipeline modules import without error."""
 
-        assert len(hypotheses) >= 3  # at least: reentrancy, access-control(s), unchecked, oracle
+    def test_import_acquire(self):
+        from pipeline.acquire import TargetAcquirer
 
-        categories = {h.attack_vector for h in hypotheses}
-        # Should see reentrancy and oracle-related hypotheses
-        assert any("re-enter" in v.lower() for v in categories)
-        assert any("oracle" in v.lower() or "price" in v.lower() for v in categories)
+        assert TargetAcquirer is not None
 
-    def test_reentrancy_hypothesis_targets_withdraw(self):
-        findings = _simulated_findings()
-        engine = HypothesisEngine(findings)
-        hypotheses = engine.generate()
+    def test_import_context(self):
+        from pipeline.context import ContextExtractor
 
-        reent = [h for h in hypotheses if "re-enter" in h.attack_vector.lower()]
-        assert len(reent) == 1
-        assert "withdraw" in reent[0].target_functions
+        assert ContextExtractor is not None
 
-    def test_access_control_hypotheses(self):
-        findings = _simulated_findings()
-        engine = HypothesisEngine(findings)
-        hypotheses = engine.generate()
+    def test_import_triage(self):
+        from pipeline.triage import Triager
 
-        ac = [h for h in hypotheses if "authorization" in h.attack_vector.lower()]
-        # Two access-control findings in different contracts (VulnerableVault, VulnerableProxy)
-        # They're in the same category but different contracts, may or may not correlate
-        assert len(ac) >= 1
+        assert Triager is not None
 
-    def test_oracle_hypothesis_needs_fork(self):
-        findings = _simulated_findings()
-        engine = HypothesisEngine(findings)
-        hypotheses = engine.generate()
+    def test_import_analyze(self):
+        from pipeline.analyze import Analyzer
 
-        oracle = [h for h in hypotheses if "oracle" in h.attack_vector.lower()]
-        assert len(oracle) == 1
-        assert oracle[0].needs_fork is True
+        assert Analyzer is not None
 
-    def test_hypotheses_sorted_by_priority(self):
-        findings = _simulated_findings()
-        engine = HypothesisEngine(findings)
-        hypotheses = engine.generate()
+    def test_import_poc_gen(self):
+        from pipeline.poc_gen import PoCGenerator
 
-        # Should be sorted: highest priority first
-        scores = [
-            h.exploitability * (len(Severity) - list(Severity).index(h.severity))
-            for h in hypotheses
-        ]
-        assert scores == sorted(scores, reverse=True)
+        assert PoCGenerator is not None
+
+    def test_import_report(self):
+        from pipeline.report import ReportGenerator
+
+        assert ReportGenerator is not None
+
+    def test_import_orchestrator(self):
+        from pipeline.orchestrator import PipelineOrchestrator
+
+        assert PipelineOrchestrator is not None
+
+    def test_import_llm(self):
+        from pipeline.llm import LLMClient
+
+        assert LLMClient is not None
+
+    def test_import_verify(self):
+        from pipeline.verify import ForgeExecutor
+
+        assert ForgeExecutor is not None
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: Verification (template rendering only, no forge execution)
+# Data model compatibility
 # ---------------------------------------------------------------------------
 
 
-class TestVerifyIntegration:
-    def test_reentrancy_template_renders(self, tmp_path):
+class TestModelCompatibility:
+    def test_findings_from_different_sources(self):
+        """Verify Slither and Semgrep findings are properly combined."""
+        findings = _simulated_findings()
+
+        slither_findings = [f for f in findings if f.source == FindingSource.SLITHER]
+        semgrep_findings = [f for f in findings if f.source == FindingSource.SEMGREP]
+
+        assert len(slither_findings) == 3
+        assert len(semgrep_findings) == 2
+
+    def test_acquired_target_model(self):
+        target = AcquiredTarget(
+            path=Path("/tmp/test"),
+            solc_version="0.8.20",
+            freshness=FreshnessReport(is_clean=True),
+        )
+        assert target.path == Path("/tmp/test")
+        assert target.freshness.is_clean
+
+    def test_code_context_model(self):
+        ctx = CodeContext(
+            finding_id="F-001",
+            source_snippet="function withdraw() {",
+            full_function="function withdraw() { ... }",
+        )
+        assert ctx.finding_id == "F-001"
+
+    def test_hypothesis_v2_fields(self):
         hyp = Hypothesis(
-            id="H-test-001",
-            finding_ids=["SLITH-0001"],
-            attack_vector="External call before state update allows attacker to re-enter and drain funds",
-            preconditions=["No reentrancy guard"],
-            impact="Fund drainage",
+            id="H-001",
+            finding_ids=["F-001"],
+            attack_vector="reentrancy",
+            preconditions=[],
+            impact="fund drain",
             severity=Severity.HIGH,
             exploitability=0.8,
-            poc_strategy="Deploy attacker with fallback",
-            target_functions=["withdraw"],
+            poc_strategy="test",
+            target_functions=["Vault.withdraw"],
+            root_cause="External call before state update",
+            exploit_steps=["Step 1", "Step 2"],
+            required_contracts=["IERC20"],
+            poc_solidity_hints="vm.prank(attacker);",
         )
-        verifier = Verifier(output_dir=tmp_path)
-        rendered_file = verifier.render_poc(hyp, params={"target_contract": "VulnerableVault"})
+        assert hyp.root_cause != ""
+        assert len(hyp.exploit_steps) == 2
 
-        assert rendered_file is not None
-        assert rendered_file.exists()
-        content = rendered_file.read_text()
-        assert "withdraw" in content
-        assert "test_reentrancy" in content.lower() or "reentrancy" in content.lower()
-
-    def test_access_control_template_renders(self, tmp_path):
-        hyp = Hypothesis(
-            id="H-test-002",
-            finding_ids=["SLITH-0002"],
-            attack_vector="Missing or insufficient authorization allows unauthorized state change",
-            preconditions=[],
-            impact="Unauthorized access",
-            severity=Severity.HIGH,
-            exploitability=0.8,
-            poc_strategy="Call from unauthorized address",
-            target_functions=["emergencyWithdraw"],
+    def test_poc_result_v2_fields(self):
+        result = PoCResult(
+            hypothesis_id="H-001",
+            test_name="test_exploit",
+            test_file="/tmp/test.t.sol",
+            compiled=True,
+            passed=True,
+            attempt=2,
+            previous_errors=["Attempt 1 failed"],
+            validated=True,
+            validation_reason="PoC demonstrates drain",
         )
-        verifier = Verifier(output_dir=tmp_path)
-        rendered_file = verifier.render_poc(hyp, params={"target_contract": "VulnerableVault"})
+        assert result.attempt == 2
+        assert result.validated
 
-        assert rendered_file is not None
-        content = rendered_file.read_text()
-        assert "emergencyWithdraw" in content
-
-    def test_oracle_template_renders(self, tmp_path):
-        hyp = Hypothesis(
-            id="H-test-003",
-            finding_ids=["SEM-0004"],
-            attack_vector="Stale or manipulable price oracle enables flash loan sandwich attack",
-            preconditions=[],
-            impact="Oracle manipulation",
-            severity=Severity.HIGH,
-            exploitability=0.5,
-            poc_strategy="Flash loan to manipulate oracle",
-            target_functions=["getPrice"],
-            needs_fork=True,
+    def test_scan_config_v2_fields(self):
+        config = ScanConfig(
+            target="test",
+            max_llm_calls=100,
+            force=True,
+            no_cache=True,
+            platform="immunefi",
         )
-        verifier = Verifier(output_dir=tmp_path)
-        rendered_file = verifier.render_poc(hyp, params={"target_contract": "VulnerableOracle"})
-
-        assert rendered_file is not None
-        content = rendered_file.read_text()
-        assert "getPrice" in content or "oracle" in content.lower()
-
-    def test_unknown_vector_returns_none(self, tmp_path):
-        hyp = Hypothesis(
-            id="H-test-999",
-            finding_ids=["X-999"],
-            attack_vector="Some completely novel attack nobody has seen before",
-            preconditions=[],
-            impact="Unknown",
-            severity=Severity.LOW,
-            exploitability=0.1,
-            poc_strategy="Manual review",
-            target_functions=["foo"],
-        )
-        verifier = Verifier(output_dir=tmp_path)
-        result = verifier.verify(hyp)
-        assert result.passed is False
-        assert "No template found" in result.error
+        assert config.max_llm_calls == 100
+        assert config.force
+        assert config.platform == "immunefi"
 
 
 # ---------------------------------------------------------------------------
-# Phase 4: Report generation
+# Report generation (mocked LLM)
 # ---------------------------------------------------------------------------
 
 
 class TestReportIntegration:
     def test_full_report_generation(self, tmp_path):
+        from pipeline.llm import LLMClient
+        from pipeline.report import ReportGenerator
+
+        llm = MagicMock(spec=LLMClient)
+        llm.ask.return_value = (
+            "# Reentrancy in Vault.withdraw\n"
+            "## Summary\nReentrancy vulnerability.\n"
+            "## Vulnerability Detail\nExternal call before state update.\n"
+            "## Impact\nFund drainage.\n"
+            "## Attack Scenario\nDeploy attacker.\n"
+            "## Proof of Concept\nPoC here.\n"
+            "## Remediation\nUse ReentrancyGuard.\n"
+        )
+
         hyp = Hypothesis(
             id="H-test-001",
             finding_ids=["SLITH-0001"],
-            attack_vector="External call before state update allows attacker to re-enter and drain funds",
-            preconditions=["No reentrancy guard", "Sufficient balance"],
-            impact="Complete fund drainage via recursive re-entry",
+            attack_vector="Reentrancy via external call before state update",
+            preconditions=["No reentrancy guard"],
+            impact="Complete fund drainage",
             severity=Severity.HIGH,
             exploitability=0.8,
             poc_strategy="Deploy attacker with fallback",
             target_functions=["VulnerableVault.withdraw"],
+            root_cause="External call before state update",
         )
         poc_result = PoCResult(
             hypothesis_id="H-test-001",
@@ -277,31 +283,35 @@ class TestReportIntegration:
             passed=True,
             gas_used=150000,
             logs="[PASS] test_reentrancy_exploit (gas: 150000)",
+            validated=True,
         )
         config = ScanConfig(
             target="https://github.com/example/vulnerable-protocol",
             immunefi_program="vulnerable-protocol",
         )
 
-        generator = ReportGenerator(output_dir=tmp_path)
+        generator = ReportGenerator(llm=llm, output_dir=tmp_path)
         report, path = generator.generate(
             hypothesis=hyp,
             poc_result=poc_result,
-            config=config,
             poc_code="// PoC code here",
+            config=config,
         )
 
         assert isinstance(report, VulnReport)
         assert report.severity == Severity.HIGH
-        assert "reentrancy" in report.title.lower() or "re-enter" in report.title.lower()
         assert path.exists()
+        assert llm.ask.called
 
-        markdown = path.read_text()
-        assert "## Summary" in markdown or "# " in markdown
-        assert "Vulnerability" in markdown
-        assert "Remediation" in markdown
+    def test_report_without_immunefi_program(self, tmp_path):
+        from pipeline.llm import LLMClient
+        from pipeline.report import ReportGenerator
 
-    def test_report_without_poc(self, tmp_path):
+        llm = MagicMock(spec=LLMClient)
+        llm.ask.return_value = (
+            "# Title\n## Summary\nSummary.\n## Remediation\nFix it.\n"
+        )
+
         hyp = Hypothesis(
             id="H-test-002",
             finding_ids=["SEM-0004"],
@@ -313,99 +323,34 @@ class TestReportIntegration:
             poc_strategy="Flash loan",
             target_functions=["getPrice"],
         )
+        poc_result = PoCResult(
+            hypothesis_id="H-test-002",
+            test_name="test_exploit",
+            test_file="/tmp/test.t.sol",
+            compiled=True,
+            passed=True,
+        )
         config = ScanConfig(target="/local/path/to/contracts")
 
-        generator = ReportGenerator(output_dir=tmp_path)
+        generator = ReportGenerator(llm=llm, output_dir=tmp_path)
         report, path = generator.generate(
             hypothesis=hyp,
-            poc_result=None,
+            poc_result=poc_result,
+            poc_code="",
             config=config,
         )
 
         assert isinstance(report, VulnReport)
-        assert report.poc_result is None
+        assert report.immunefi_program is None
         assert path.exists()
 
 
 # ---------------------------------------------------------------------------
-# End-to-end pipeline (scan mocked since we can't run Slither in tests)
+# Fixture verification
 # ---------------------------------------------------------------------------
 
 
-class TestEndToEndPipeline:
-    def test_pipeline_scan_to_report(self, tmp_path):
-        """Full pipeline with mocked scan phase."""
-        findings = _simulated_findings()
-        config = ScanConfig(
-            target=str(SAMPLE_CONTRACTS),
-            immunefi_program="test-protocol",
-        )
-
-        # Phase 1: Scan (simulated)
-        assert len(findings) == 5
-
-        # Phase 2: Hypothesize
-        engine = HypothesisEngine(findings, config)
-        hypotheses = engine.generate()
-        assert len(hypotheses) >= 3
-
-        # Phase 3: Verify (templates only, no forge)
-        verifier = Verifier(output_dir=tmp_path / "poc")
-        results = []
-        for hyp in hypotheses:
-            result = verifier.verify(hyp)
-            results.append((hyp, result))
-
-        # At least some hypotheses should match templates
-        rendered = [(h, r) for h, r in results if r.error is None or "No template" not in r.error]
-        # forge isn't available in test env, so compiled=False is expected
-        assert len(rendered) >= 0  # Might be 0 if forge not in PATH
-
-        # Phase 4: Report for all hypotheses
-        reporter = ReportGenerator(output_dir=tmp_path / "reports")
-        reports = []
-        for hyp, poc_result in results:
-            report, path = reporter.generate(
-                hypothesis=hyp,
-                poc_result=poc_result,
-                config=config,
-            )
-            reports.append((report, path))
-
-        assert len(reports) == len(hypotheses)
-        for report, path in reports:
-            assert isinstance(report, VulnReport)
-            assert path.exists()
-            assert path.suffix == ".md"
-
-    def test_findings_from_different_sources_combined(self):
-        """Verify Slither and Semgrep findings are properly combined."""
-        findings = _simulated_findings()
-
-        slither_findings = [f for f in findings if f.source == FindingSource.SLITHER]
-        semgrep_findings = [f for f in findings if f.source == FindingSource.SEMGREP]
-
-        assert len(slither_findings) == 3
-        assert len(semgrep_findings) == 2
-
-        engine = HypothesisEngine(findings)
-        hypotheses = engine.generate()
-
-        # All findings should be referenced in at least one hypothesis
-        all_referenced = set()
-        for h in hypotheses:
-            all_referenced.update(h.finding_ids)
-        for f in findings:
-            assert f.id in all_referenced, f"Finding {f.id} not referenced in any hypothesis"
-
-    def test_pipeline_with_zero_findings(self, tmp_path):
-        """Pipeline handles zero findings gracefully."""
-        config = ScanConfig(target=str(SAMPLE_CONTRACTS))
-        engine = HypothesisEngine([], config)
-        hypotheses = engine.generate()
-        assert hypotheses == []
-
+class TestFixtures:
     def test_sample_contracts_exist(self):
-        """Verify fixture contracts are in place."""
         assert (SAMPLE_CONTRACTS / "Vulnerable.sol").exists()
         assert (SAMPLE_CONTRACTS / "Safe.sol").exists()

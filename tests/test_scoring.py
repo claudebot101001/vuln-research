@@ -1,9 +1,8 @@
 import pytest
 
-from pipeline.models import Finding, FindingSource, Severity
+from pipeline.models import Finding, FindingSource, Severity, sev_rank
 from pipeline.scoring import (
     CATEGORY_SEVERITY,
-    _sev_rank,
     score_finding,
     severity_to_immunefi,
 )
@@ -13,7 +12,12 @@ from pipeline.scoring import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_finding(category: str = "reentrancy", confidence: float = 0.8, severity: Severity = Severity.HIGH) -> Finding:
+
+def _make_finding(
+    category: str = "reentrancy",
+    confidence: float = 0.8,
+    severity: Severity = Severity.HIGH,
+) -> Finding:
     return Finding(
         id="F-001",
         source=FindingSource.SLITHER,
@@ -31,6 +35,7 @@ def _make_finding(category: str = "reentrancy", confidence: float = 0.8, severit
 # ---------------------------------------------------------------------------
 # score_finding
 # ---------------------------------------------------------------------------
+
 
 class TestScoreFinding:
     def test_boosts_confidence_for_reentrancy(self):
@@ -74,30 +79,32 @@ class TestScoreFinding:
 
 
 # ---------------------------------------------------------------------------
-# _sev_rank
+# sev_rank
 # ---------------------------------------------------------------------------
+
 
 class TestSevRank:
     def test_critical_is_lowest_rank(self):
-        assert _sev_rank(Severity.CRITICAL) == 0
+        assert sev_rank(Severity.CRITICAL) == 0
 
     def test_info_is_highest_rank(self):
-        assert _sev_rank(Severity.INFO) == 4
+        assert sev_rank(Severity.INFO) == 4
 
     def test_ordering(self):
-        ranks = [_sev_rank(s) for s in Severity]
+        ranks = [sev_rank(s) for s in Severity]
         assert ranks == [0, 1, 2, 3, 4]
 
     def test_critical_less_than_high(self):
-        assert _sev_rank(Severity.CRITICAL) < _sev_rank(Severity.HIGH)
+        assert sev_rank(Severity.CRITICAL) < sev_rank(Severity.HIGH)
 
     def test_high_less_than_medium(self):
-        assert _sev_rank(Severity.HIGH) < _sev_rank(Severity.MEDIUM)
+        assert sev_rank(Severity.HIGH) < sev_rank(Severity.MEDIUM)
 
 
 # ---------------------------------------------------------------------------
 # severity_to_immunefi
 # ---------------------------------------------------------------------------
+
 
 class TestSeverityToImmunefi:
     def test_all_mappings(self):
