@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -81,6 +82,9 @@ class LLMClient:
         if system_prompt:
             cmd.extend(["--system-prompt", system_prompt])
 
+        # Strip CLAUDECODE env var to avoid nested-session detection
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+
         try:
             result = subprocess.run(
                 cmd,
@@ -88,6 +92,7 @@ class LLMClient:
                 capture_output=True,
                 text=True,
                 timeout=timeout or self.default_timeout,
+                env=env,
             )
         except subprocess.TimeoutExpired as e:
             raise LLMError(

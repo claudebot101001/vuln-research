@@ -83,7 +83,7 @@ class Triager:
         prompt = self._build_triage_prompt(batch)
         try:
             response = self.llm.ask_structured(
-                prompt, system_prompt=TRIAGE_SYSTEM_PROMPT, timeout=60
+                prompt, system_prompt=TRIAGE_SYSTEM_PROMPT, timeout=180
             )
         except LLMParseError as e:
             logger.warning(

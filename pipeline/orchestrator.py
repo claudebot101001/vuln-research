@@ -10,7 +10,7 @@ from pathlib import Path
 from .acquire import TargetAcquirer
 from .analyze import Analyzer
 from .context import ContextExtractor
-from .llm import LLMClient
+from .llm import LLMClient, LLMError
 from .models import (
     AcquiredTarget,
     CodeContext,
@@ -162,7 +162,12 @@ class PipelineOrchestrator:
             if not ctx:
                 ctx = CodeContext(finding_id=hyp.id)
 
-            result = self.poc_gen.generate_and_verify(hyp, ctx, self.config)
+            try:
+                result = self.poc_gen.generate_and_verify(hyp, ctx, self.config)
+            except LLMError as e:
+                print(f"  PoC generation failed for {hyp.id}: {e}")
+                continue
+
             if result and result.passed and result.validated:
                 poc_code = ""
                 if result.test_file:

@@ -77,7 +77,7 @@ def _ensure_foundry_deps(target_dir: Path) -> None:
         cwd=target_dir,
         capture_output=True,
         text=True,
-        timeout=180,
+        timeout=600,
         env=env,
     )
 

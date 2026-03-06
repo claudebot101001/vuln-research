@@ -116,7 +116,7 @@ class PoCGenerator:
     ) -> str:
         """LLM generates complete .t.sol file."""
         prompt = self._build_poc_prompt(hypothesis, context, config, previous_error)
-        response = self.llm.ask(prompt, system_prompt=POC_SYSTEM_PROMPT, timeout=300)
+        response = self.llm.ask(prompt, system_prompt=POC_SYSTEM_PROMPT, timeout=600)
         return _extract_solidity(response)
 
     def _build_poc_prompt(

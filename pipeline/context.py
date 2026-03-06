@@ -264,7 +264,11 @@ class ContextExtractor:
         """Read the source file referenced by a finding."""
         file_path = Path(finding.file_path)
         if not file_path.is_absolute():
-            file_path = self.target_dir / file_path
+            # Avoid doubling: if file_path already starts with target_dir, use as-is
+            if not file_path.exists():
+                candidate = self.target_dir / file_path
+                if candidate.exists():
+                    file_path = candidate
         try:
             return file_path.read_text(encoding="utf-8", errors="replace")
         except (OSError, FileNotFoundError):
