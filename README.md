@@ -1,8 +1,6 @@
 # vuln-research
 
-LLM-integrated smart contract vulnerability research pipeline. Built as an experiment to test whether an autonomous AI agent can find exploitable vulnerabilities in Solidity codebases.
-
-**Status: Archived.** The pipeline works end-to-end but has no competitive edge over existing tools. See [Post-Mortem](#post-mortem) below.
+LLM-integrated smart contract vulnerability research pipeline. Combines static analysis (Semgrep + Slither) with LLM-powered triage, deep analysis, and automated Foundry PoC generation.
 
 ## Architecture
 
@@ -39,13 +37,14 @@ Target repo
                (Immunefi / Cantina / generic markdown)
 ```
 
-### Key Design Decisions
+## Key Features
 
 - **LLM transport**: `claude -p` subprocess calls (no API key needed, uses CLI auth)
 - **Checkpointing**: JSON serialization after each phase for crash recovery
 - **Response caching**: SHA256-keyed file cache to avoid redundant LLM calls
-- **Cost tracking**: Hard budget cap on LLM calls (default 50)
+- **Cost tracking**: Hard budget cap on LLM calls (configurable, default 50)
 - **Freshness gate**: Aborts on superseded/stale code unless `--force`
+- **PoC validation**: LLM reviews passing tests to reject trivially-true assertions
 
 ## Directory Structure
 
@@ -67,17 +66,15 @@ analyzers/          # Static analysis runners
   semgrep_runner.py # Semgrep integration
   detectors/        # Custom Slither detectors
 rules/semgrep/      # Custom Semgrep rules (8 categories)
-foundry/templates/  # Jinja2 PoC templates (v1, unused in v2)
+foundry/templates/  # Jinja2 PoC templates
 tests/              # Unit tests (14 test files)
 ```
 
 ## Usage
 
 ```bash
-# Install dependencies
 pip install -e .
 
-# Run on a target
 python -m pipeline.orchestrator <target_dir> [options]
 
 # Options
@@ -88,49 +85,13 @@ python -m pipeline.orchestrator <target_dir> [options]
 --platform immunefi|cantina       # Report format
 ```
 
-Requires: Python 3.12+, [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code), Foundry (`forge`), Slither, Semgrep.
+## Requirements
 
-## Test Results
-
-**mamo-contracts** (real DeFi protocol):
-- Scan: 7 findings (Semgrep only; Slither timed out on `forge build`)
-- Triage: 0/7 survived -- all correctly identified as false positives
-- The stale-price finding was a FP because the code already validates `updatedAt`
-- The unsafe-downcast findings were intentional patterns in rate-limiting libraries
-
-**test-vulnerable** (deliberately buggy contract):
-- Scan: 8 findings
-- Triage: 5/8 survived (correctly kept reentrancy, access control, unchecked calls)
-- Analyze: 5 hypotheses generated with root causes and attack vectors
-- PoC gen: Not completed (LLM subprocess timeout at 300s)
-
-## Post-Mortem
-
-### Why This Doesn't Work
-
-1. **No detection edge.** Semgrep/Slither rules are public. Every finding this pipeline produces, existing tools (kritt.ai, Olympix, Aderyn) find too. Using public rule sets means zero alpha.
-
-2. **Architecture is inverted.** Uses cheap tools (static analysis) as the primary scanner and expensive tools (LLM) as the filter. Real vulnerabilities -- invariant violations, cross-protocol composability exploits, economic attacks -- aren't pattern-matchable. The LLM should be the primary reasoner, not a post-filter.
-
-3. **Context is fragmented.** The analysis LLM sees isolated function snippets, not full protocol logic. Cross-contract call chains, external protocol dependencies, and economic model assumptions are invisible. This makes it structurally incapable of finding the vulnerabilities that actually pay bounties.
-
-4. **Uneconomical.** Each hypothesis requires multiple `claude -p` calls (PoC gen x3 retries x N hypotheses). For a pipeline that produces mostly false positives, the token cost per valid finding approaches infinity.
-
-5. **No moat.** Anyone can pipe Solidity into Claude/GPT and ask "find vulnerabilities." The pipeline adds orchestration but not intelligence. The competitive landscape (kritt.ai, Olympix, Code4rena AI) has more data, proprietary detectors, and dedicated teams.
-
-### What Would Actually Work
-
-The only viable AI-in-audit approach would need:
-- LLM as **primary scanner** (invariant reasoning over full codebase, not pattern matching)
-- **Proprietary data** (private audit reports, exploit databases not on rekt.news)
-- **On-chain state integration** (real-time reserves, prices, governance state)
-- Context windows large enough for entire protocol codebases (current limit: ~200k tokens)
-
-None of these are achievable by a single autonomous agent with public tools.
-
-### Lesson Learned
-
-> Before entering any domain, complete a competitive edge analysis first. "We use LLM so it's smarter" is not an edge. "We have X exclusive data source that increases Y detection rate by Z%" is. No edge, no build.
+- Python 3.12+
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (`claude auth login`)
+- [Foundry](https://book.getfoundry.sh/) (`forge`)
+- [Slither](https://github.com/crytic/slither)
+- [Semgrep](https://semgrep.dev/)
 
 ## License
 
