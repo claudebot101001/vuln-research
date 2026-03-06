@@ -12,22 +12,9 @@ CATEGORY_SEVERITY = {
     "storage-collision": Severity.CRITICAL,
 }
 
-CONFIDENCE_MAP = {
-    "high": 0.9,
-    "medium": 0.6,
-    "low": 0.3,
-    "informational": 0.1,
-}
-
 
 def score_finding(finding: Finding) -> Finding:
     """Adjust severity and confidence based on DeFi context."""
-    # If category has a known severity mapping and finding is lower, upgrade
-    category_sev = CATEGORY_SEVERITY.get(finding.category)
-    if category_sev and sev_rank(finding.severity) > sev_rank(category_sev):
-        # Don't downgrade, only consider upgrade context
-        pass
-
     # Boost confidence for high-impact categories
     if finding.category in ("reentrancy", "storage-collision", "access-control"):
         finding = finding.model_copy(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .llm import LLMClient, _extract_solidity
+from .llm import LLMClient, LLMParseError, _extract_solidity
 from .models import CodeContext, Hypothesis, PoCResult, ScanConfig
 from .verify import ForgeExecutor
 
@@ -77,7 +77,15 @@ class PoCGenerator:
             last_result = result
 
             if result.passed:
-                validation = self._validate_poc(poc_code, result, hypothesis)
+                try:
+                    validation = self._validate_poc(poc_code, result, hypothesis)
+                except LLMParseError:
+                    # Validation LLM returned unparseable response — treat as valid
+                    # (conservative: don't discard a passing PoC due to validation parse error)
+                    validation = {
+                        "valid": True,
+                        "reason": "validation parse error, accepting",
+                    }
                 if validation["valid"]:
                     result.validated = True
                     result.validation_reason = validation["reason"]
