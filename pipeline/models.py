@@ -1,6 +1,10 @@
-from pydantic import BaseModel, Field
-from enum import Enum
+from __future__ import annotations
+
 from datetime import UTC, datetime
+from enum import Enum
+from pathlib import Path
+
+from pydantic import BaseModel, Field
 
 
 class Severity(str, Enum):
@@ -9,6 +13,11 @@ class Severity(str, Enum):
     MEDIUM = "medium"
     LOW = "low"
     INFO = "info"
+
+
+def sev_rank(sev: Severity) -> int:
+    """Lower rank = higher severity. Canonical location (no more duplicates)."""
+    return list(Severity).index(sev)
 
 
 class FindingSource(str, Enum):
@@ -47,6 +56,11 @@ class Hypothesis(BaseModel):
     target_functions: list[str]
     needs_fork: bool = False
     fork_block: int | None = None
+    # v2 extensions (all defaulted for backwards compat)
+    root_cause: str = ""
+    exploit_steps: list[str] = Field(default_factory=list)
+    required_contracts: list[str] = Field(default_factory=list)
+    poc_solidity_hints: str = ""
 
 
 class PoCResult(BaseModel):
@@ -59,6 +73,11 @@ class PoCResult(BaseModel):
     profit_usd: float | None = None
     logs: str = ""
     error: str | None = None
+    # v2 extensions (all defaulted for backwards compat)
+    attempt: int = 1
+    previous_errors: list[str] = Field(default_factory=list)
+    validated: bool = False
+    validation_reason: str = ""
 
 
 class VulnReport(BaseModel):
@@ -90,3 +109,39 @@ class ScanConfig(BaseModel):
     fork_url: str | None = None
     fork_block: int | None = None
     immunefi_program: str | None = None
+    # v2 extensions (all defaulted for backwards compat)
+    max_llm_calls: int = 50
+    force: bool = False
+    no_cache: bool = False
+    platform: str = "cantina"
+
+
+# --- New v2 models ---
+
+
+class FreshnessError(Exception):
+    """Raised when freshness check fails and --force not set."""
+
+
+class FreshnessReport(BaseModel):
+    stale_files: list[dict] = Field(default_factory=list)
+    superseded_files: list[dict] = Field(default_factory=list)
+    scope_drift: list[dict] = Field(default_factory=list)
+    is_clean: bool = True
+
+
+class AcquiredTarget(BaseModel):
+    path: Path
+    solc_version: str | None = None
+    freshness: FreshnessReport = Field(default_factory=FreshnessReport)
+
+
+class CodeContext(BaseModel):
+    finding_id: str
+    source_snippet: str = ""
+    full_function: str = ""
+    contract_source: str = ""
+    call_graph: list[str] = Field(default_factory=list)
+    state_variables: list[str] = Field(default_factory=list)
+    inheritance_chain: list[str] = Field(default_factory=list)
+    related_functions: list[str] = Field(default_factory=list)

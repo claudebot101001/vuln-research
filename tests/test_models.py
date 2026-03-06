@@ -19,6 +19,7 @@ from pipeline.models import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _minimal_finding(**overrides) -> Finding:
     """Create a Finding with the minimum required fields."""
     defaults = {
@@ -62,6 +63,7 @@ def _full_finding() -> Finding:
 # Severity enum
 # ---------------------------------------------------------------------------
 
+
 class TestSeverity:
     def test_values(self):
         assert Severity.CRITICAL.value == "critical"
@@ -85,6 +87,7 @@ class TestSeverity:
 # ---------------------------------------------------------------------------
 # Finding
 # ---------------------------------------------------------------------------
+
 
 class TestFinding:
     def test_minimal(self):
@@ -116,6 +119,7 @@ class TestFinding:
 # ---------------------------------------------------------------------------
 # Hypothesis
 # ---------------------------------------------------------------------------
+
 
 class TestHypothesis:
     def test_creation(self):
@@ -155,6 +159,7 @@ class TestHypothesis:
 # PoCResult
 # ---------------------------------------------------------------------------
 
+
 class TestPoCResult:
     def test_creation(self):
         r = PoCResult(
@@ -186,6 +191,7 @@ class TestPoCResult:
 # ---------------------------------------------------------------------------
 # VulnReport
 # ---------------------------------------------------------------------------
+
 
 class TestVulnReport:
     def _make_report(self) -> VulnReport:
@@ -236,6 +242,7 @@ class TestVulnReport:
 # ---------------------------------------------------------------------------
 # ScanConfig
 # ---------------------------------------------------------------------------
+
 
 class TestScanConfig:
     def test_defaults(self):
